@@ -1,6 +1,6 @@
 /**
  * @file script.js
- * @description Lógica principal de la aplicación CMDB (CIFP Movie DataBase).
+ * @description Lógica principal de la aplicación de Gestión de Películas.
  * Gestiona géneros y películas usando LocalStorage y manipulación del DOM.
  * @author Carlos
  */
@@ -132,8 +132,8 @@ let idPeliculaEditando = null;
  * Carga los datos desde LocalStorage o inicializa datos de prueba.
  */
 function iniciarAplicacion() {
-    // Carga de géneros
-    let generosGuardados = localStorage.getItem("cmdb_generos");
+    // Carga de géneros (nombre de clave actualizado)
+    let generosGuardados = localStorage.getItem("app_generos");
     if (generosGuardados) {
         let arraySimple = JSON.parse(generosGuardados);
         listaGeneros = arraySimple.map(g => new Genero(g.id, g.nombre));
@@ -143,8 +143,8 @@ function iniciarAplicacion() {
         listaGeneros.push(new Genero(2, "Comedia"));
     }
 
-    // Carga de películas
-    let pelisGuardadas = localStorage.getItem("cmdb_peliculas");
+    // Carga de películas (nombre de clave actualizado)
+    let pelisGuardadas = localStorage.getItem("app_peliculas");
     if (pelisGuardadas) {
         let arraySimple = JSON.parse(pelisGuardadas);
         listaPeliculas = arraySimple.map(p => {
@@ -169,8 +169,9 @@ function iniciarAplicacion() {
  * Guarda el estado actual de los arrays en LocalStorage.
  */
 function guardarTodo() {
-    localStorage.setItem("cmdb_generos", JSON.stringify(listaGeneros));
-    localStorage.setItem("cmdb_peliculas", JSON.stringify(listaPeliculas));
+    // Nombres de claves actualizados para eliminar referencia CMDB
+    localStorage.setItem("app_generos", JSON.stringify(listaGeneros));
+    localStorage.setItem("app_peliculas", JSON.stringify(listaPeliculas));
 }
 
 /**
@@ -452,10 +453,13 @@ function actualizarTablaPublica() {
         let tr = document.createElement("tr");
         
         // Mapear IDs de géneros a Nombres
-        let nombresG = p.generosIds.map(idG => {
-            let genero = listaGeneros.find(g => g.id === idG);
-            return genero ? genero.nombre : "Desconocido";
-        }).join(", ");
+        // MODIFICADO: Se elimina lógica de fallback a "Desconocido".
+        // Si no se encuentra, simplemente se filtra y no se muestra.
+        let nombresG = p.generosIds
+            .map(idG => listaGeneros.find(g => g.id === idG)) // Obtenemos el objeto
+            .filter(g => g !== undefined) // Filtramos los que no existen
+            .map(g => g.nombre) // Obtenemos el nombre de los existentes
+            .join(", ");
 
         tr.innerHTML = `
             <td>${p.titulo}</td>
