@@ -1,0 +1,583 @@
+/**
+ * @file script.js
+ * @description Lógica principal de la aplicación CMDB (CIFP Movie DataBase).
+ * Gestiona géneros y películas usando LocalStorage y manipulación del DOM.
+ * @author Carlos
+ */
+
+// ==========================================
+// CLASES (MODELO DE DATOS)
+// ==========================================
+
+/**
+ * Representa un género cinematográfico.
+ */
+class Genero {
+    /**
+     * Crea una instancia de Genero.
+     * @param {number} id - Identificador único del género.
+     * @param {string} nombre - Nombre del género.
+     */
+    constructor(id, nombre) {
+        this.id = id;
+        this.nombre = nombre;
+    }
+}
+
+/**
+ * Representa una película en la base de datos.
+ */
+class Pelicula {
+    /**
+     * Crea una instancia de Pelicula.
+     * @param {number} id - Identificador único.
+     * @param {string} titulo - Título de la película.
+     * @param {string} fecha - Fecha de estreno (YYYY-MM-DD).
+     * @param {number} popularidad - Valor de 0 a 100.
+     */
+    constructor(id, titulo, fecha, popularidad) {
+        this._id = id;
+        this.titulo = titulo;
+        this.fecha = fecha; // Usa el setter para validar
+        this.popularidad = popularidad; // Usa el setter para validar
+        this.generosIds = [];
+        this.puntuaciones = [];
+    }
+
+    /**
+     * Obtiene el ID de la película (solo lectura).
+     * @returns {number}
+     */
+    get id() { return this._id; }
+
+    /**
+     * Obtiene la fecha de estreno.
+     * @returns {string}
+     */
+    get fecha() { return this._fecha; }
+
+    /**
+     * Establece y valida la fecha de estreno.
+     * Debe ser posterior a 1900 y no futura.
+     * @param {string} valor - Fecha en formato YYYY-MM-DD.
+     */
+    set fecha(valor) {
+        let fechaDada = new Date(valor);
+        let fechaMinima = new Date('1900-01-01');
+        let hoy = new Date();
+
+        if (fechaDada < fechaMinima || fechaDada > hoy) {
+            alert("La fecha debe ser posterior a 1900 y no futura.");
+            throw new Error("Fecha inválida");
+        }
+        this._fecha = valor;
+    }
+
+    /**
+     * Obtiene la popularidad.
+     * @returns {number}
+     */
+    get popularidad() { return this._popularidad; }
+
+    /**
+     * Establece y valida la popularidad.
+     * Debe estar entre 0 y 100.
+     * @param {number} valor 
+     */
+    set popularidad(valor) {
+        if (valor < 0 || valor > 100) {
+            alert("La popularidad debe ser entre 0 y 100.");
+            throw new Error("Popularidad inválida");
+        }
+        this._popularidad = valor;
+    }
+
+    /**
+     * Calcula la media aritmética de las puntuaciones.
+     * @returns {string} La media con un decimal (ej: "7.5").
+     */
+    calcularMedia() {
+        if (this.puntuaciones.length === 0) return "0";
+        let suma = 0;
+        for (let i = 0; i < this.puntuaciones.length; i++) {
+            suma += this.puntuaciones[i];
+        }
+        let media = suma / this.puntuaciones.length;
+        return media.toFixed(1);
+    }
+}
+
+// ==========================================
+// VARIABLES GLOBALES Y ESTADO
+// ==========================================
+
+/** @type {Genero[]} Lista de todos los géneros cargados. */
+let listaGeneros = [];
+
+/** @type {Pelicula[]} Lista de todas las películas cargadas. */
+let listaPeliculas = [];
+
+/** @type {number|null} ID del género que se está editando actualmente (null si se está creando). */
+let idGeneroEditando = null;
+
+/** @type {number|null} ID de la película que se está editando actualmente (null si se está creando). */
+let idPeliculaEditando = null;
+
+
+// ==========================================
+// FUNCIONES DE PERSISTENCIA Y UTILIDADES
+// ==========================================
+
+/**
+ * Carga los datos desde LocalStorage o inicializa datos de prueba.
+ */
+function iniciarAplicacion() {
+    // Carga de géneros
+    let generosGuardados = localStorage.getItem("cmdb_generos");
+    if (generosGuardados) {
+        let arraySimple = JSON.parse(generosGuardados);
+        listaGeneros = arraySimple.map(g => new Genero(g.id, g.nombre));
+    } else {
+        // Datos iniciales por defecto
+        listaGeneros.push(new Genero(1, "Acción"));
+        listaGeneros.push(new Genero(2, "Comedia"));
+    }
+
+    // Carga de películas
+    let pelisGuardadas = localStorage.getItem("cmdb_peliculas");
+    if (pelisGuardadas) {
+        let arraySimple = JSON.parse(pelisGuardadas);
+        listaPeliculas = arraySimple.map(p => {
+            let obj = new Pelicula(p._id, p.titulo, p._fecha, p._popularidad);
+            obj.generosIds = p.generosIds;
+            obj.puntuaciones = p.puntuaciones;
+            return obj;
+        });
+    } else {
+        // Datos iniciales por defecto
+        let p1 = new Pelicula(1, "Matrix", "1999-03-31", 90);
+        p1.generosIds.push(1);
+        p1.puntuaciones = [9, 10];
+        listaPeliculas.push(p1);
+    }
+    
+    guardarTodo();
+    console.log("Aplicación iniciada correctamente");
+}
+
+/**
+ * Guarda el estado actual de los arrays en LocalStorage.
+ */
+function guardarTodo() {
+    localStorage.setItem("cmdb_generos", JSON.stringify(listaGeneros));
+    localStorage.setItem("cmdb_peliculas", JSON.stringify(listaPeliculas));
+}
+
+/**
+ * Calcula el siguiente ID disponible para una lista de objetos.
+ * @param {Array} lista - Array de objetos Genero o Pelicula.
+ * @returns {number} El siguiente ID entero positivo.
+ */
+function obtenerSiguienteId(lista) {
+    let maximo = 0;
+    for (let i = 0; i < lista.length; i++) {
+        // Usamos item.id (getter) para acceder tanto a _id como a id
+        if (lista[i].id > maximo) {
+            maximo = lista[i].id;
+        }
+    }
+    return maximo + 1;
+}
+
+// ==========================================
+// GESTIÓN DE PANTALLAS (SPA)
+// ==========================================
+
+/**
+ * Muestra la sección deseada y oculta las demás.
+ * Actualiza las tablas de datos si es necesario.
+ * @param {string} idSeccion - ID del elemento HTML de la sección a mostrar.
+ */
+function mostrarSeccion(idSeccion) {
+    // Ocultar todas
+    document.getElementById("sec-home").style.display = "none";
+    document.getElementById("sec-genres").style.display = "none";
+    document.getElementById("sec-movies").style.display = "none";
+    document.getElementById("sec-list").style.display = "none";
+
+    // Mostrar elegida
+    let seccion = document.getElementById(idSeccion);
+    if (seccion) {
+        seccion.style.display = "block";
+    }
+
+    // Lógica específica al entrar en una sección
+    if (idSeccion === "sec-genres") {
+        resetearFormularioGeneros();
+        actualizarTablaGeneros();
+    } else if (idSeccion === "sec-movies") {
+        resetearFormularioPeliculas();
+        actualizarTablaPeliculasAdmin();
+    } else if (idSeccion === "sec-list") {
+        actualizarTablaPublica();
+    }
+}
+
+// ==========================================
+// LÓGICA DE GÉNEROS
+// ==========================================
+
+/**
+ * Resetea el formulario de géneros a estado "Crear nuevo".
+ */
+function resetearFormularioGeneros() {
+    document.getElementById("form-genre").reset();
+    idGeneroEditando = null;
+    document.getElementById("genre-id").value = obtenerSiguienteId(listaGeneros);
+    document.querySelector("#form-genre button[type='submit']").textContent = "Guardar Género";
+}
+
+/**
+ * Renderiza la tabla de administración de géneros.
+ */
+function actualizarTablaGeneros() {
+    let tbody = document.querySelector("#table-genres tbody");
+    tbody.innerHTML = "";
+
+    listaGeneros.forEach(g => {
+        let tr = document.createElement("tr");
+        
+        // Celdas de datos
+        let tdId = document.createElement("td");
+        tdId.textContent = g.id;
+        tr.appendChild(tdId);
+        
+        let tdNom = document.createElement("td");
+        tdNom.textContent = g.nombre;
+        tr.appendChild(tdNom);
+        
+        // Celda de Acciones
+        let tdAcciones = document.createElement("td");
+        
+        // Botón Editar
+        let btnEdit = document.createElement("button");
+        btnEdit.textContent = "Editar";
+        btnEdit.style.marginRight = "5px";
+        btnEdit.addEventListener("click", () => cargarGeneroEnFormulario(g.id));
+        
+        // Botón Eliminar
+        let btnDel = document.createElement("button");
+        btnDel.textContent = "Eliminar";
+        btnDel.addEventListener("click", () => borrarGenero(g.id));
+        
+        tdAcciones.appendChild(btnEdit);
+        tdAcciones.appendChild(btnDel);
+        tr.appendChild(tdAcciones);
+        
+        tbody.appendChild(tr);
+    });
+    
+    // Si no estamos editando, recalculamos el ID sugerido
+    if (idGeneroEditando === null) {
+        document.getElementById("genre-id").value = obtenerSiguienteId(listaGeneros);
+    }
+}
+
+/**
+ * Carga los datos de un género en el formulario para editarlo.
+ * @param {number} id - ID del género a editar.
+ */
+function cargarGeneroEnFormulario(id) {
+    let genero = listaGeneros.find(g => g.id === id);
+    if (genero) {
+        idGeneroEditando = id;
+        document.getElementById("genre-id").value = genero.id;
+        document.getElementById("genre-name").value = genero.nombre;
+        document.querySelector("#form-genre button[type='submit']").textContent = "Actualizar Género";
+    }
+}
+
+/**
+ * Elimina un género si no está siendo usado por ninguna película.
+ * @param {number} id - ID del género a eliminar.
+ */
+function borrarGenero(id) {
+    // Comprobar integridad referencial
+    for (let p of listaPeliculas) {
+        if (p.generosIds.includes(id)) {
+            alert("No se puede borrar: hay películas asociadas a este género.");
+            return;
+        }
+    }
+    
+    if (confirm("¿Seguro que deseas borrar este género?")) {
+        listaGeneros = listaGeneros.filter(g => g.id !== id);
+        guardarTodo();
+        resetearFormularioGeneros(); // Limpiar por si se estaba editando el borrado
+        actualizarTablaGeneros();
+    }
+}
+
+// ==========================================
+// LÓGICA DE PELÍCULAS (ADMIN)
+// ==========================================
+
+/**
+ * Resetea el formulario de películas a estado "Crear nueva".
+ */
+function resetearFormularioPeliculas() {
+    document.getElementById("form-movie").reset();
+    idPeliculaEditando = null;
+    document.getElementById("movie-id").value = obtenerSiguienteId(listaPeliculas);
+    document.querySelector("#form-movie button[type='submit']").textContent = "Guardar Película";
+    pintarCheckboxesGeneros(); // Repintar limpios
+}
+
+/**
+ * Genera dinámicamente los checkboxes de géneros en el formulario.
+ * @param {number[]} generosMarcados - IDs de los géneros que deben aparecer marcados (para edición).
+ */
+function pintarCheckboxesGeneros(generosMarcados = []) {
+    let div = document.getElementById("movie-genres-container");
+    div.innerHTML = "";
+    
+    listaGeneros.forEach(g => {
+        let label = document.createElement("label");
+        label.style.display = "block";
+        
+        let input = document.createElement("input");
+        input.type = "checkbox";
+        input.value = g.id;
+        input.name = "chk_genero";
+        
+        // Si estamos editando, marcamos los que tenga la peli
+        if (generosMarcados.includes(g.id)) {
+            input.checked = true;
+        }
+        
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(" " + g.nombre));
+        div.appendChild(label);
+    });
+}
+
+/**
+ * Renderiza la tabla de administración de películas.
+ */
+function actualizarTablaPeliculasAdmin() {
+    let tbody = document.querySelector("#table-movies-admin tbody");
+    tbody.innerHTML = "";
+    
+    listaPeliculas.forEach(p => {
+        let tr = document.createElement("tr");
+        
+        let tdId = document.createElement("td");
+        tdId.textContent = p.id;
+        tr.appendChild(tdId);
+        
+        let tdTit = document.createElement("td");
+        tdTit.textContent = p.titulo;
+        tr.appendChild(tdTit);
+        
+        let tdAcciones = document.createElement("td");
+        
+        // Botón Editar
+        let btnEdit = document.createElement("button");
+        btnEdit.textContent = "Editar";
+        btnEdit.style.marginRight = "5px";
+        btnEdit.addEventListener("click", () => cargarPeliculaEnFormulario(p.id));
+        
+        // Botón Eliminar
+        let btnDel = document.createElement("button");
+        btnDel.textContent = "Eliminar";
+        btnDel.addEventListener("click", () => borrarPelicula(p.id));
+        
+        tdAcciones.appendChild(btnEdit);
+        tdAcciones.appendChild(btnDel);
+        tr.appendChild(tdAcciones);
+        
+        tbody.appendChild(tr);
+    });
+
+    if (idPeliculaEditando === null) {
+        document.getElementById("movie-id").value = obtenerSiguienteId(listaPeliculas);
+    }
+}
+
+/**
+ * Carga los datos de una película en el formulario para editarla.
+ * @param {number} id - ID de la película.
+ */
+function cargarPeliculaEnFormulario(id) {
+    let p = listaPeliculas.find(item => item.id === id);
+    if (p) {
+        idPeliculaEditando = id;
+        document.getElementById("movie-id").value = p.id;
+        document.getElementById("movie-title").value = p.titulo;
+        document.getElementById("movie-date").value = p.fecha;
+        document.getElementById("movie-pop").value = p.popularidad;
+        
+        // Repintar checkboxes marcando los correctos
+        pintarCheckboxesGeneros(p.generosIds);
+        
+        document.querySelector("#form-movie button[type='submit']").textContent = "Actualizar Película";
+    }
+}
+
+/**
+ * Elimina una película del sistema.
+ * @param {number} id - ID de la película.
+ */
+function borrarPelicula(id) {
+    if (confirm("¿Seguro que deseas borrar esta película?")) {
+        listaPeliculas = listaPeliculas.filter(p => p.id !== id);
+        guardarTodo();
+        resetearFormularioPeliculas();
+        actualizarTablaPeliculasAdmin();
+    }
+}
+
+// ==========================================
+// LÓGICA PÚBLICA (LISTADO Y VOTACIÓN)
+// ==========================================
+
+/**
+ * Renderiza la tabla pública con detalles y botón de votar.
+ */
+function actualizarTablaPublica() {
+    let tbody = document.querySelector("#table-movies-public tbody");
+    tbody.innerHTML = "";
+    
+    listaPeliculas.forEach(p => {
+        let tr = document.createElement("tr");
+        
+        // Mapear IDs de géneros a Nombres
+        let nombresG = p.generosIds.map(idG => {
+            let genero = listaGeneros.find(g => g.id === idG);
+            return genero ? genero.nombre : "Desconocido";
+        }).join(", ");
+
+        tr.innerHTML = `
+            <td>${p.titulo}</td>
+            <td>${p.fecha}</td>
+            <td>${p.popularidad}</td>
+            <td>${p.calcularMedia()}</td>
+            <td>${p.puntuaciones.length}</td>
+            <td>${nombresG}</td>
+        `;
+        
+        let tdVotar = document.createElement("td");
+        let btn = document.createElement("button");
+        btn.textContent = "Votar";
+        btn.addEventListener("click", () => votar(p.id));
+        
+        tdVotar.appendChild(btn);
+        tr.appendChild(tdVotar);
+        
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Permite al usuario votar una película.
+ * @param {number} id - ID de la película.
+ */
+function votar(id) {
+    let nota = prompt("Puntúa del 0 al 10:");
+    if (nota === null) return; // Cancelado
+    
+    nota = parseInt(nota);
+    if (!isNaN(nota) && nota >= 0 && nota <= 10) {
+        let pelicula = listaPeliculas.find(p => p.id === id);
+        if (pelicula) {
+            pelicula.puntuaciones.push(nota);
+            guardarTodo();
+            actualizarTablaPublica();
+        }
+    } else {
+        alert("Nota no válida. Debe ser un número entre 0 y 10.");
+    }
+}
+
+// ==========================================
+// INICIALIZACIÓN DE EVENTOS (DOM CONTENT LOADED)
+// ==========================================
+
+window.addEventListener("load", function() {
+    // 1. Cargar datos iniciales
+    iniciarAplicacion();
+
+    // 2. Eventos de Menú de Navegación
+    document.getElementById("nav-home").addEventListener("click", () => mostrarSeccion("sec-home"));
+    document.getElementById("nav-genres").addEventListener("click", () => mostrarSeccion("sec-genres"));
+    document.getElementById("nav-movies").addEventListener("click", () => mostrarSeccion("sec-movies"));
+    document.getElementById("nav-list").addEventListener("click", () => mostrarSeccion("sec-list"));
+
+    // 3. Evento Submit Formulario GÉNEROS
+    document.getElementById("form-genre").addEventListener("submit", function(e) {
+        e.preventDefault();
+        let nombre = document.getElementById("genre-name").value;
+        
+        if (nombre.trim() === "") return;
+
+        if (idGeneroEditando === null) {
+            // CREAR NUEVO
+            let id = obtenerSiguienteId(listaGeneros);
+            listaGeneros.push(new Genero(id, nombre));
+            alert("Género creado correctamente.");
+        } else {
+            // ACTUALIZAR EXISTENTE
+            let genero = listaGeneros.find(g => g.id === idGeneroEditando);
+            if (genero) {
+                genero.nombre = nombre;
+                alert("Género actualizado correctamente.");
+            }
+        }
+        
+        guardarTodo();
+        resetearFormularioGeneros();
+        actualizarTablaGeneros();
+    });
+
+    // 4. Evento Submit Formulario PELÍCULAS
+    document.getElementById("form-movie").addEventListener("submit", function(e) {
+        e.preventDefault();
+        try {
+            let tit = document.getElementById("movie-title").value;
+            let fec = document.getElementById("movie-date").value;
+            let pop = parseInt(document.getElementById("movie-pop").value);
+            
+            // Recoger checkboxes seleccionados
+            let arrayG = [];
+            let checks = document.querySelectorAll("input[name='chk_genero']:checked");
+            checks.forEach(chk => arrayG.push(parseInt(chk.value)));
+            
+            if (idPeliculaEditando === null) {
+                // CREAR NUEVA
+                let id = obtenerSiguienteId(listaPeliculas);
+                let p = new Pelicula(id, tit, fec, pop);
+                p.generosIds = arrayG;
+                listaPeliculas.push(p);
+                alert("Película creada correctamente.");
+            } else {
+                // ACTUALIZAR EXISTENTE
+                let p = listaPeliculas.find(item => item.id === idPeliculaEditando);
+                if (p) {
+                    p.titulo = tit;
+                    p.fecha = fec; // Esto dispara el setter y valida fecha
+                    p.popularidad = pop; // Esto dispara el setter y valida popularidad
+                    p.generosIds = arrayG;
+                    alert("Película actualizada correctamente.");
+                }
+            }
+            
+            guardarTodo();
+            resetearFormularioPeliculas();
+            actualizarTablaPeliculasAdmin();
+            
+        } catch (error) {
+            console.error(error);
+            // El alert ya salta en los setters de la clase
+        }
+    });
+});

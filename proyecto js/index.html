@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CMDB - CIFP Movie DataBase</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>CMDB - Gestión de Cine</h1>
+        <nav>
+            <button type="button" id="nav-home">Inicio</button>
+            <button type="button" id="nav-genres">Gestión de Géneros</button>
+            <button type="button" id="nav-movies">Gestión de Películas</button>
+            <button type="button" id="nav-list">Listado y Votación</button>
+        </nav>
+    </header>
+
+    <main>
+        <section id="sec-home">
+            <h2>Bienvenido a CMDB</h2>
+            <p>Selecciona una opción del menú para comenzar.</p>
+        </section>
+
+        <section id="sec-genres" class="hidden">
+            <h2>Gestión de Géneros</h2>
+            <form id="form-genre">
+                <label>ID (Auto): <input type="text" id="genre-id" disabled></label>
+                <label>Nombre: <input type="text" id="genre-name" required></label>
+                <button type="submit">Guardar Género</button>
+            </form>
+            <h3>Listado de Géneros</h3>
+            <table id="table-genres">
+                <thead><tr><th>ID</th><th>Nombre</th><th>Acciones</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <section id="sec-movies" class="hidden">
+            <h2>Gestión de Películas</h2>
+            <form id="form-movie">
+                <label>ID (Auto): <input type="text" id="movie-id" disabled></label>
+                <label>Título: <input type="text" id="movie-title" required></label>
+                <label>Fecha Estreno: <input type="date" id="movie-date" required></label>
+                <label>Popularidad (0-100): <input type="number" id="movie-pop" required></label>
+                
+                <fieldset>
+                    <legend>Géneros:</legend>
+                    <div id="movie-genres-container"></div>
+                </fieldset>
+
+                <button type="submit">Guardar Película</button>
+            </form>
+            <h3>Películas Registradas</h3>
+            <table id="table-movies-admin">
+                <thead><tr><th>ID</th><th>Título</th><th>Acciones</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <section id="sec-list" class="hidden">
+            <h2>Cartelera para Votar</h2>
+            <table id="table-movies-public">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Fecha</th>
+                        <th>Pop.</th>
+                        <th>Puntuación</th>
+                        <th>Votos</th>
+                        <th>Géneros</th>
+                        <th>Votar</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="js/script.js"></script>
+</body>
+</html>

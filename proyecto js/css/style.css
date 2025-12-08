@@ -1,0 +1,8 @@
+body { font-family: sans-serif; padding: 20px; background-color: #f4f4f4; }
+header { background: #333; color: white; padding: 10px; margin-bottom: 20px; }
+button { padding: 5px 10px; cursor: pointer; margin-right: 5px; }
+.hidden { display: none; }
+table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+form { background: white; padding: 15px; border: 1px solid #ccc; margin-bottom: 15px; }
+input { display: block; margin-bottom: 10px; width: 300px; padding: 5px; }
